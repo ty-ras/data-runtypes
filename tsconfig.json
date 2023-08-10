@@ -1,0 +1,26 @@
+// Base TS config file for all other TS configs in repo.
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "lib": [
+      "ES2022"
+    ],
+    "target": "ES2022",
+    "esModuleInterop": true,
+    // No code minimization/uglification is happening, thus preserving source maps does not bring much value.
+    // Furthermore, because .js and .mjs files will reside in the same directory, there will be a little hassle on the mapping file names + their refs in source.
+    "sourceMap": false,
+    "strict": true,
+    // The zod's errorMap property is easier to use with exactOptionalPropertyTypes turned off.
+    "exactOptionalPropertyTypes": false,
+    // We export whole src folder, so no need to include declaration files to dist folder.
+    "declaration": false,
+    "noErrorTruncation": true,
+    "incremental": true,
+  },
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node"
+  },
+}
