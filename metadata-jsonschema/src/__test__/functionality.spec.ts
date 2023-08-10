@@ -133,11 +133,8 @@ const contentType = "application/json" as const;
 const contentTypes = [contentType];
 
 const stringSchema: md.JSONSchema = {
-  $schema: "http://json-schema.org/draft-07/schema#",
   type: "string",
-  description: "string",
+  // description: "string",
 };
 
-const unknownSchema: md.JSONSchema = {
-  $schema: "http://json-schema.org/draft-07/schema#",
-};
+const unknownSchema: md.JSONSchema = {};

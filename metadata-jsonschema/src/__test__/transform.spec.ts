@@ -26,17 +26,17 @@ test("Validate transformToJSONSchema complex non-hierarchical usages work", (c) 
   c.deepEqual(rawTransformToJSONSchema(t.Literal("literal")), {
     type: "string",
     const: "literal",
-    description: '"literal"',
+    // description: '"literal"',
   });
   c.deepEqual(rawTransformToJSONSchema(t.Literal(true)), {
     type: "boolean",
     const: true,
-    description: "true",
+    // description: "true",
   });
   c.deepEqual(rawTransformToJSONSchema(t.Literal("literal")), {
     type: "string",
     const: "literal",
-    description: '"literal"',
+    // description: '"literal"',
   });
   c.deepEqual(rawTransformToJSONSchema(t.Never), { not: {} });
   c.deepEqual(
@@ -46,7 +46,7 @@ test("Validate transformToJSONSchema complex non-hierarchical usages work", (c) 
     {
       type: "string",
       enum: ["literal", "anotherLiteral"],
-      description: '("literal" | "anotherLiteral")',
+      // description: '("literal" | "anotherLiteral")',
     },
   );
   // No any in runtypes
@@ -64,19 +64,19 @@ test("Validate transformToJSONSchema simple hierarchical usages work", (c) => {
     type: "array",
     items: {
       type: "string",
-      description: "string",
+      // description: "string",
     },
   };
   c.deepEqual(rawTransformToJSONSchema(t.Array(t.String)), {
     ...expectedArray,
-    description: "Array<string>",
+    // description: "Array<string>",
   });
   c.deepEqual(
     rawTransformToJSONSchema(t.Union(t.Literal("one"), t.Literal("two"))),
     {
       type: "string",
       enum: ["one", "two"],
-      description: '("one" | "two")',
+      // description: '("one" | "two")',
     },
   );
 });
@@ -88,10 +88,10 @@ test("Validate transformToJSONSchema record types work", (c) => {
     properties: {
       property: {
         type: "string",
-        description: "string",
+        // description: "string",
       },
     },
-    description: "{ property: string }",
+    // description: "{ property: string }",
   };
   c.deepEqual(
     rawTransformToJSONSchema(
@@ -113,18 +113,17 @@ test("Validate transformToJSONSchema record types work", (c) => {
     ),
     {
       ...expectedObject,
-      description: `{ property?: string }`,
+      // description: `{ property?: string }`,
       additionalProperties: false,
     },
   );
   c.deepEqual(rawTransformToJSONSchema(t.Dictionary(t.String, t.Number)), {
     type: "object",
     additionalProperties: {
-      description: "number",
+      // description: "number",
       type: "number",
     },
-
-    description: "{ [K in string]: number }",
+    // description: "{ [K in string]: number }",
   });
   // c.deepEqual(
   //   rawTransformToJSONSchema(
@@ -147,11 +146,11 @@ test("Validate transformToJSONSchema complex hierarchical usages work", (c) => {
   const stringAndNumber: Array<Exclude<md.JSONSchema, boolean>> = [
     {
       type: "string",
-      description: "string",
+      // description: "string",
     },
     {
       type: "number",
-      description: "number",
+      // description: "number",
     },
   ];
   c.deepEqual(
@@ -175,19 +174,19 @@ test("Validate transformToJSONSchema complex hierarchical usages work", (c) => {
       // Same thing happens here as above
       type: stringAndNumber.map((s) => s.type),
       // TODO do something about this...?
-      description: "(string | number | undefined)",
+      // description: "(string | number | undefined)",
     },
   );
   c.deepEqual(rawTransformToJSONSchema(t.Union(t.String, t.Number)), {
     // No undefined present -> both types must be present
     type: ["string", "number"],
-    description: "(string | number)",
+    // description: "(string | number)",
   });
 
   // Intersection
   c.deepEqual(rawTransformToJSONSchema(t.Intersect(t.String, t.Number)), {
     allOf: stringAndNumber,
-    description: "(string & number)",
+    // description: "(string & number)",
   });
 
   // Tuple
@@ -196,7 +195,7 @@ test("Validate transformToJSONSchema complex hierarchical usages work", (c) => {
     minItems: 2,
     maxItems: 2,
     items: stringAndNumber,
-    description: "[string, number]",
+    // description: "[string, number]",
   });
 
   // Heterogenous literal unions
@@ -205,7 +204,7 @@ test("Validate transformToJSONSchema complex hierarchical usages work", (c) => {
     {
       type: ["string", "number"],
       enum: ["literal", 1],
-      description: '("literal" | 1)',
+      // description: '("literal" | 1)',
     },
   );
 });
@@ -285,19 +284,21 @@ const simpleTransformToJSONSchema = (
   c: ExecutionContext,
   validation: t.Runtype,
   type: Exclude<md.JSONSchema, boolean>["type"] | md.JSONSchema,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   description?: string,
 ) =>
+  // Figure out what to do with description later.
   c.deepEqual(
     rawTransformToJSONSchema(validation),
     typeof type === "string"
       ? {
           type,
-          description: description ?? type,
+          // description: description ?? type,
         }
       : typeof type === "object"
       ? {
           ...type,
-          description,
+          // description,
         }
       : type,
   );

@@ -50,7 +50,7 @@ const transformToJSONSchemaImpl = (
 ): common.JSONSchema => {
   let retVal = override?.(validation, cutOffTopLevelUndefined);
   if (retVal === undefined) {
-    if (topLevel && validation.tag === "union") {
+    if (topLevel && validation?.tag === "union") {
       // Special case: top-level schema with undefined as union component -> will be marked as optional and schema being everything except undefined
       retVal = tryTransformTopLevelSchema(
         recursion,
@@ -84,7 +84,7 @@ type Recursion = (item: t.Reflect) => common.JSONSchema;
 
 const transformRuntypeReflect = (recursion: Recursion, reflect: t.Reflect) => {
   let retVal: common.JSONSchema | undefined;
-  switch (reflect.tag) {
+  switch (reflect?.tag) {
     case "string":
     case "template":
       {
@@ -125,6 +125,11 @@ const transformRuntypeReflect = (recursion: Recursion, reflect: t.Reflect) => {
             : {
                 const: value,
               };
+      }
+      break;
+    case "unknown":
+      {
+        retVal = {};
       }
       break;
     case "constraint":
