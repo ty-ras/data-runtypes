@@ -95,7 +95,7 @@ const testDecodersAndEncoders = (
   }
 
   if (fallbackValue !== undefined) {
-    const invalid = "hello" as unknown as t.Runtype;
+    const invalid = { reflect: "hello" } as unknown as t.Runtype;
     c.deepEqual(stringDecoder(invalid, true), override ?? fallbackValue);
     c.deepEqual(seenFallbackArgs, override !== undefined ? [] : ["hello"]);
   } else {
