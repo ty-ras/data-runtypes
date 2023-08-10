@@ -1,5 +1,5 @@
 {
-  "name": "@ty-ras/data-zod",
+  "name": "@ty-ras/data-runtypes",
   "version": "2.0.0",
   "author": {
     "name": "Stanislav Muhametsin",
@@ -9,7 +9,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ty-ras/data-zod"
+    "url": "https://github.com/ty-ras/data-runtypes"
   },
   "files": [
     "./src",
