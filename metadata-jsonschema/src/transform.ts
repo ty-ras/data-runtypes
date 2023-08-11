@@ -50,23 +50,102 @@ const transformToJSONSchemaImpl = (
 ): common.JSONSchema => {
   let retVal = override?.(validation, cutOffTopLevelUndefined);
   if (retVal === undefined) {
-    if (topLevel && validation?.tag === "union") {
-      // Special case: top-level schema with undefined as union component -> will be marked as optional and schema being everything except undefined
-      retVal = tryTransformTopLevelSchema(
-        recursion,
-        validation,
-        validation.alternatives,
-      );
-    } else {
-      retVal = transformRuntypeReflect(recursion, validation);
-    }
+    retVal = transformRuntypeReflect(recursion, validation, topLevel);
   }
   return retVal ?? common.getFallbackValue(validation, fallbackValue);
 };
 
+type Recursion = (item: t.Reflect) => common.JSONSchema;
+
+const transformRuntypeReflect = (
+  recursion: Recursion,
+  reflect: t.Reflect,
+  topLevel: boolean,
+): common.JSONSchema | undefined => {
+  switch (reflect?.tag) {
+    case "string":
+    case "template":
+      return makeTypedSchema("string");
+    case "number":
+      return makeTypedSchema("number");
+    case "boolean":
+      return makeTypedSchema("boolean");
+    case "never":
+    case "void":
+      return false;
+    case "literal":
+      return transformLiteral(reflect.value);
+    case "unknown":
+      return true;
+    case "constraint":
+    case "optional":
+      return recursion(reflect.underlying);
+    case "brand":
+      return recursion(reflect.entity);
+    case "array":
+      return {
+        type: "array",
+        items: recursion(reflect.element),
+      };
+    case "record": {
+      const entries = Object.entries(reflect.fields);
+      const retVal: common.JSONSchema = {
+        type: "object",
+        properties: Object.fromEntries(
+          entries.map(([fieldName, fieldValidation]) => [
+            fieldName,
+            recursion(fieldValidation),
+          ]),
+        ),
+        additionalProperties: false,
+      };
+      const required = entries.filter(([, field]) => field.tag !== "optional");
+
+      if (required.length > 0) {
+        retVal.required = required.map(([name]) => name);
+      }
+      return retVal;
+    }
+    case "dictionary":
+      return reflect.key === "symbol"
+        ? undefined
+        : makeTypedSchema("object", {
+            propertyNames: {
+              type: reflect.key,
+            },
+            additionalProperties: recursion(reflect.value),
+          });
+    case "tuple":
+      return makeTypedSchema("array", {
+        minItems: reflect.components.length,
+        maxItems: reflect.components.length,
+        items: reflect.components.map(recursion),
+      });
+    case "intersect":
+      return tryGetCommonTypeName("allOf", reflect.intersectees.map(recursion));
+    case "union": {
+      const components = Array.from(
+        common.flattenDeepStructures(reflect.alternatives, (item) =>
+          item.reflect.tag === "union" ? item.reflect.alternatives : undefined,
+        ),
+      );
+      let retVal: common.JSONSchema | undefined;
+      if (topLevel) {
+        retVal = tryTransformTopLevelSchema(recursion, components);
+      }
+      if (retVal === undefined) {
+        retVal = tryGetCommonTypeName("anyOf", components.map(recursion));
+      }
+
+      return common.tryToCompressUnionOfMaybeEnums(retVal);
+    }
+  }
+};
+
+// TODO move these to some common place. Currently duplicated code from io-ts version.
+
 const tryTransformTopLevelSchema = (
   recursion: Recursion,
-  original: t.Reflect,
   components: ReadonlyArray<t.Reflect>,
 ) => {
   const nonUndefineds = components.filter(
@@ -80,138 +159,55 @@ const tryTransformTopLevelSchema = (
     : undefined;
 };
 
-type Recursion = (item: t.Reflect) => common.JSONSchema;
-
-const transformRuntypeReflect = (recursion: Recursion, reflect: t.Reflect) => {
-  let retVal: common.JSONSchema | undefined;
-  switch (reflect?.tag) {
-    case "string":
-    case "template":
-      {
-        retVal = {
-          type: "string",
-        };
-      }
-      break;
-    case "number":
-      {
-        retVal = {
-          type: "number",
-        };
-      }
-      break;
-    case "boolean":
-      {
-        retVal = {
-          type: "boolean",
-        };
-      }
-      break;
-    case "never":
-      {
-        retVal = false;
-      }
-      break;
-    case "literal":
-      {
-        const { value } = reflect;
-        retVal =
-          value === null
-            ? {
-                type: "null",
-              }
-            : value === undefined || typeof value === "bigint"
-            ? undefined
-            : {
-                const: value,
-              };
-      }
-      break;
-    case "unknown":
-      {
-        retVal = {};
-      }
-      break;
-    case "constraint":
-    case "optional":
-      {
-        retVal = recursion(reflect.underlying);
-      }
-      break;
-    case "brand":
-      {
-        retVal = recursion(reflect.entity);
-      }
-      break;
-    case "array":
-      {
-        retVal = {
-          type: "array",
-          items: recursion(reflect.element),
-        };
-      }
-      break;
-    case "record":
-      {
-        const entries = Object.entries(reflect.fields);
-        retVal = {
-          type: "object",
-          properties: Object.fromEntries(
-            entries.map(([fieldName, fieldValidation]) => [
-              fieldName,
-              recursion(fieldValidation),
-            ]),
-          ),
-        };
-        if (!reflect.isPartial) {
-          retVal.required = entries.map(([fieldName]) => fieldName);
-        }
-      }
-      break;
-    case "dictionary":
-      {
-        if (reflect.key != "symbol") {
-          retVal = {
-            type: "object",
-            propertyNames: {
-              type: reflect.key,
-            },
-            additionalProperties: recursion(reflect.value),
-          };
-        }
-      }
-      break;
-    case "tuple":
-      {
-        retVal = {
-          type: "array",
-          items: reflect.components.map(recursion),
-        };
-      }
-      break;
-    case "intersect":
-      {
-        retVal = {
-          allOf: reflect.intersectees.map(recursion),
-        };
-      }
-      break;
-    case "union":
-      {
-        const components = Array.from(
-          common.flattenDeepStructures(reflect.alternatives, (item) =>
-            item.reflect.tag === "union"
-              ? item.reflect.alternatives
-              : undefined,
-          ),
-        );
-        retVal = {
-          anyOf: components.map(recursion),
-        };
-        retVal = common.tryToCompressUnionOfMaybeEnums(retVal);
-      }
-      break;
+const transformLiteral = (
+  value: undefined | null | boolean | number | bigint | string,
+): common.JSONSchema | undefined => {
+  switch (value) {
+    case null:
+      return { type: "null" };
+    case undefined:
+      return false;
+    default:
+      return typeof value === "bigint"
+        ? undefined
+        : makeTypedSchema(
+            typeof value === "string"
+              ? "string"
+              : typeof value === "number"
+              ? "number"
+              : typeof value === "boolean"
+              ? "boolean"
+              : "object",
+            { const: value },
+          );
   }
+};
 
+const makeTypedSchema = (
+  type: JSONSchemaObject["type"],
+  rest: Omit<JSONSchemaObject, "type"> = {},
+): JSONSchemaObject => ({
+  type,
+  ...rest,
+});
+
+type JSONSchemaObject = Exclude<common.JSONSchema, boolean>;
+
+const tryGetCommonTypeName = <TName extends "anyOf" | "allOf">(
+  name: TName,
+  schemas: ReadonlyArray<common.JSONSchema>,
+): JSONSchemaObject => {
+  const types = new Set(
+    schemas.map((s) =>
+      typeof s === "object" && typeof s.type === "string" ? s.type : undefined,
+    ),
+  );
+  const retVal: JSONSchemaObject = { [name]: schemas };
+  if (types.size === 1) {
+    const value = Array.from(types.values())[0];
+    if (value !== undefined) {
+      retVal.type = value;
+    }
+  }
   return retVal;
 };

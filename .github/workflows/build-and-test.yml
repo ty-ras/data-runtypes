@@ -37,10 +37,10 @@ jobs:
       matrix:
         dir:
         - data
-        # - data-backend
-        # - data-frontend
-        # - metadata-jsonschema
-        # - state
+        - data-backend
+        - data-frontend
+        - metadata-jsonschema
+        - state
     runs-on: ubuntu-latest
     name: Build and test ${{ matrix.dir }}
     steps:

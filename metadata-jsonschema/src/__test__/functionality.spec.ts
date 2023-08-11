@@ -137,4 +137,4 @@ const stringSchema: md.JSONSchema = {
   // description: "string",
 };
 
-const unknownSchema: md.JSONSchema = {};
+const unknownSchema: md.JSONSchema = true;

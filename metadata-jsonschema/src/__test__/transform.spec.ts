@@ -12,13 +12,13 @@ import * as spec from "../transform";
 test("Validate transformToJSONSchema basic usages work", (c) => {
   c.plan(8);
   simpleTransformToJSONSchema(c, t.Null, "null");
-  simpleTransformToJSONSchema(c, t.Undefined, { not: {} }, "undefined");
-  simpleTransformToJSONSchema(c, t.Void, {}, "void");
+  simpleTransformToJSONSchema(c, t.Undefined, false, "undefined");
+  simpleTransformToJSONSchema(c, t.Void, true, "void"); // For some reason, void is same as Unknown in Runtypes
   simpleTransformToJSONSchema(c, t.String, "string");
   simpleTransformToJSONSchema(c, t.Boolean, "boolean");
   simpleTransformToJSONSchema(c, t.Number, "number");
-  simpleTransformToJSONSchema(c, t.Literal(null), "object", "null");
-  simpleTransformToJSONSchema(c, t.Literal(undefined), "object", "undefined");
+  simpleTransformToJSONSchema(c, t.Literal(null), "null", "null");
+  simpleTransformToJSONSchema(c, t.Literal(undefined), false, "undefined");
 });
 
 test("Validate transformToJSONSchema complex non-hierarchical usages work", (c) => {
@@ -38,7 +38,7 @@ test("Validate transformToJSONSchema complex non-hierarchical usages work", (c) 
     const: "literal",
     // description: '"literal"',
   });
-  c.deepEqual(rawTransformToJSONSchema(t.Never), { not: {} });
+  c.deepEqual(rawTransformToJSONSchema(t.Never), false);
   c.deepEqual(
     rawTransformToJSONSchema(
       t.Union(t.Literal("literal"), t.Literal("anotherLiteral")),
@@ -50,7 +50,7 @@ test("Validate transformToJSONSchema complex non-hierarchical usages work", (c) 
     },
   );
   // No any in runtypes
-  // c.deepEqual(rawTransformToJSONSchema(t.Any), {});
+  // c.deepEqual(rawTransformToJSONSchema(t.Any), true);
 });
 
 test("Validate transformToJSONSchema simple hierarchical usages work", (c) => {
@@ -117,11 +117,14 @@ test("Validate transformToJSONSchema record types work", (c) => {
       additionalProperties: false,
     },
   );
-  c.deepEqual(rawTransformToJSONSchema(t.Dictionary(t.String, t.Number)), {
+  c.deepEqual(rawTransformToJSONSchema(t.Dictionary(t.Number, t.String)), {
     type: "object",
     additionalProperties: {
       // description: "number",
       type: "number",
+    },
+    propertyNames: {
+      type: "string",
     },
     // description: "{ [K in string]: number }",
   });
@@ -172,14 +175,14 @@ test("Validate transformToJSONSchema complex hierarchical usages work", (c) => {
     rawTransformToJSONSchema(t.Union(t.String, t.Number, t.Undefined)),
     {
       // Same thing happens here as above
-      type: stringAndNumber.map((s) => s.type),
+      anyOf: stringAndNumber,
       // TODO do something about this...?
       // description: "(string | number | undefined)",
     },
   );
   c.deepEqual(rawTransformToJSONSchema(t.Union(t.String, t.Number)), {
     // No undefined present -> both types must be present
-    type: ["string", "number"],
+    anyOf: stringAndNumber,
     // description: "(string | number)",
   });
 
@@ -202,7 +205,6 @@ test("Validate transformToJSONSchema complex hierarchical usages work", (c) => {
   c.deepEqual(
     rawTransformToJSONSchema(t.Union(t.Literal("literal"), t.Literal(1))),
     {
-      type: ["string", "number"],
       enum: ["literal", 1],
       // description: '("literal" | 1)',
     },
@@ -224,7 +226,7 @@ test("Validate that transformToJSONSchema works with override and/or fallback ca
   const fallbackValue: md.JSONSchema = false;
   c.deepEqual(
     spec.transformToJSONSchema(t.Unknown, true, undefined, () => fallbackValue),
-    {},
+    true,
   );
   c.deepEqual(
     spec.transformToJSONSchema(
@@ -250,35 +252,37 @@ test("Validate that transformToJSONSchema works with invalid inputs", (c) => {
   );
 });
 
-// test("Validate that transformToJSONSchema works with union of unions", (c) => {
-//   c.plan(1);
-//   c.deepEqual(
-//     rawTransformToJSONSchema(
-//       common.union([
-//         t.String,
-//         common.union([t.Number, t.boolean().describe("boolean")]),
-//       ]),
-//     ),
-//     {
-//       // Nested unions are flattened
-//       anyOf: [
-//         {
-//           description: "string",
-//           type: "string",
-//         },
-//         {
-//           description: "number",
-//           type: "number",
-//         },
-//         {
-//           description: "boolean",
-//           type: "boolean",
-//         },
-//       ],
-//       description: "(string | (number | boolean))",
-//     },
-//   );
-// });
+test("Validate that transformToJSONSchema works with union of unions", (c) => {
+  c.plan(1);
+  c.deepEqual(
+    rawTransformToJSONSchema(t.Union(t.String, t.Union(t.Number, t.Boolean))),
+    {
+      // Nested unions are flattened
+      anyOf: [
+        {
+          // description: "string",
+          type: "string",
+        },
+        {
+          // description: "number",
+          type: "number",
+        },
+        {
+          // description: "boolean",
+          type: "boolean",
+        },
+      ],
+      // description: "(string | (number | boolean))",
+    },
+  );
+});
+
+test("Validate that branded types are handled correctly", (c) => {
+  c.plan(1);
+  c.deepEqual(rawTransformToJSONSchema(t.String.withBrand("the-brand")), {
+    type: "string",
+  });
+});
 
 const simpleTransformToJSONSchema = (
   c: ExecutionContext,
