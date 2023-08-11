@@ -39,6 +39,7 @@
     "@babel/eslint-parser": "7.22.10",
     "@typescript-eslint/eslint-plugin": "6.3.0",
     "@typescript-eslint/parser": "6.3.0",
+    "@types/node": "18.16.3",
     "ava": "5.3.1",
     "c8": "8.0.1",
     "eslint": "8.46.0",
